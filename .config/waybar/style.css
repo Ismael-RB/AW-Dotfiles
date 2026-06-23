@@ -1,0 +1,99 @@
+@import "/home/isma/.cache/wal/waybar-colors.css";
+
+* {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+window#waybar {
+    background: rgba(15, 15, 15, 0.62);
+}
+
+#workspaces button {
+    all: unset;
+    padding: 0 5px;
+    font-size: 8px;
+    color: #707088;
+    transition: color 0.2s ease;
+}
+
+#workspaces button.active {
+    color: #ffffff;
+}
+
+#workspaces button.urgent {
+    color: #c06060;
+}
+
+#workspaces button:hover {
+    color: #606070;
+}
+
+#bluetooth {
+    color: #a0a0b8;
+    padding: 0 6px;
+    transition: color 0.2s ease;
+}
+
+#bluetooth.connected {
+    color: #6090c8;
+}
+
+#bluetooth.disabled,
+#bluetooth.off {
+    color: #505060;
+}
+
+#network {
+    color: #b8b8c8;
+    padding: 0 6px;
+    transition: color 0.3s ease;
+}
+
+#network.disconnected {
+    color: #c07070;
+}
+
+#custom-fan {
+    color: #b8b8c8;
+    padding: 0 6px;
+    transition: color 0.3s ease;
+}
+
+#custom-powerprofile {
+    color: #b8b8c8;
+    padding: 0 6px;
+    transition: color 0.3s ease;
+}
+
+#battery {
+    color: #b8b8c8;
+    padding: 0 6px;
+    transition: color 0.3s ease;
+}
+
+#battery.charging {
+    color: #90c878;
+}
+
+#battery.critical:not(.charging) {
+    color: #e06060;
+    animation: crit 1.4s ease-in-out infinite;
+}
+
+@keyframes crit {
+    0%   { color: #e06060; }
+    50%  { color: #5a2e2e; }
+    100% { color: #e06060; }
+}
+
+#clock {
+    color: #c8c8d8;
+    letter-spacing: 1px;
+    padding: 0 10px;
+}

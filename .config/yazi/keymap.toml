@@ -1,0 +1,47 @@
+[manager]
+keymap = [
+    { on = "q",         run = "quit",                           desc = "salir" },
+    { on = "<Esc>",     run = "escape",                         desc = "cancelar / deseleccionar" },
+
+    # Navegación
+    { on = "k",         run = "arrow -1",                       desc = "arriba" },
+    { on = "j",         run = "arrow 1",                        desc = "abajo" },
+    { on = "K",         run = "arrow -5",                       desc = "arriba x5" },
+    { on = "J",         run = "arrow 5",                        desc = "abajo x5" },
+    { on = "h",         run = "leave",                          desc = "carpeta padre" },
+    { on = "l",         run = "enter",                          desc = "entrar / abrir" },
+    { on = "<Enter>",   run = "open",                           desc = "abrir con app" },
+    { on = "g",         run = "arrow -9999999",                 desc = "inicio" },
+    { on = "G",         run = "arrow 9999999",                  desc = "final" },
+
+    # Ir a sitios comunes
+    { on = ["~"],       run = "cd ~",                           desc = "home" },
+    { on = ["/"],       run = "cd /",                           desc = "raíz" },
+
+    # Archivos
+    { on = "a",         run = "create",                         desc = "crear archivo/carpeta" },
+    { on = "r",         run = "rename --cursor=before_ext",     desc = "renombrar" },
+    { on = "d",         run = "remove",                         desc = "eliminar" },
+    { on = "y",         run = "yank",                           desc = "copiar" },
+    { on = "x",         run = "yank --cut",                     desc = "cortar" },
+    { on = "p",         run = "paste",                          desc = "pegar" },
+    { on = "P",         run = "paste --force",                  desc = "pegar (sobreescribir)" },
+
+    # Selección
+    { on = "<Space>",   run = "select --state=none",            desc = "seleccionar" },
+    { on = "A",         run = "select_all --state=none",        desc = "seleccionar todo" },
+
+    # Vista
+    { on = ".",         run = "hidden toggle",                  desc = "mostrar/ocultar ocultos" },
+    { on = "z",         run = "plugin zoxide",                  desc = "ir rápido (zoxide)" },
+    { on = "f",         run = "plugin fzf",                     desc = "buscar (fzf)" },
+
+    # Tabs
+    { on = "t",         run = "tab_create --current",           desc = "nueva tab" },
+    { on = "[",         run = "tab_switch -1 --relative",       desc = "tab anterior" },
+    { on = "]",         run = "tab_switch 1 --relative",        desc = "tab siguiente" },
+    { on = "w",         run = "tab_close",                      desc = "cerrar tab" },
+
+    # Clipboard
+    { on = "c",         run = "copy path",                      desc = "copiar ruta" },
+]

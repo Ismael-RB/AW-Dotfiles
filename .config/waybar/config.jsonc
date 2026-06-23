@@ -1,0 +1,70 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 26,
+    "spacing": 0,
+    "margin": "0 0 0 0",
+
+    "modules-left": ["hyprland/workspaces"],
+    "modules-center": [],
+    "modules-right": ["bluetooth", "network", "custom/powerprofile", "battery", "clock"],
+
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "format-icons": {
+            "active":  "●",
+            "default": "●",
+            "urgent":  "●"
+        },
+        "persistent-workspaces": {
+            "*": 5
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e+1",
+        "on-scroll-down": "hyprctl dispatch workspace e-1",
+        "tooltip": false
+    },
+
+    "bluetooth": {
+        "format": "󰂯",
+        "format-disabled": "󰂲",
+        "format-connected": "󰂱",
+        "tooltip-format": "Bluetooth: {status}",
+        "tooltip": true
+    },
+
+    "network": {
+        "interface": "wlan0",
+        "format-wifi": "󰖩",
+        "format-disconnected": "󰖪",
+        "tooltip-format-wifi": "{essid}  {signalStrength}%",
+        "tooltip-format-disconnected": "Sin conexión",
+        "tooltip": true
+    },
+
+    "custom/powerprofile": {
+        "exec": "/home/isma/.config/waybar/power-profile.sh",
+        "interval": 60,
+        "signal": 9,
+        "tooltip": false
+    },
+
+    "battery": {
+        "format": "{icon}",
+        "format-charging": "󰂄",
+        "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+        "tooltip-format": "{capacity}%  ·  {time}",
+        "tooltip-format-charging": "{capacity}%  ·  cargando",
+        "states": {
+            "critical": 15
+        },
+        "interval": 5,
+        "signal": 10,
+        "tooltip": true
+    },
+
+    "clock": {
+        "format": "{:%H:%M}",
+        "tooltip-format": "{:%A %d %B %Y}",
+        "tooltip": true
+    }
+}

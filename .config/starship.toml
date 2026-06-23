@@ -1,0 +1,82 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$directory$git_branch$git_status$git_ahead_behind\
+$nodejs$python$rust$golang$java\
+$fill\
+$cmd_duration$status
+
+$character"""
+
+[directory]
+style = "white"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+
+[git_branch]
+symbol = " "
+style = "bold purple"
+format = ' [$symbol$branch]($style)'
+
+[git_status]
+format = '([ $all_status$ahead_behind]($style) )'
+style = "bold yellow"
+conflicted = "⚡"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?"
+modified = "!"
+staged = "+"
+deleted = "✘"
+
+[fill]
+symbol = " "
+
+[cmd_duration]
+min_time = 2_000
+format = "[$duration]($style) "
+style = "dimmed yellow"
+
+[status]
+disabled = false
+format = "[$symbol]($style) "
+symbol = "✗"
+style = "bold red"
+success_symbol = ""
+
+[character]
+success_symbol = "[❯](dimmed white)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[❮](dimmed white)"
+
+[nodejs]
+symbol = " "
+format = '[$symbol$version]($style) '
+style = "bold green"
+detect_files = ["package.json", ".nvmrc"]
+
+[python]
+symbol = " "
+format = '[$symbol$version]($style) '
+style = "bold yellow"
+detect_files = ["requirements.txt", "pyproject.toml", ".python-version", "Pipfile"]
+
+[rust]
+symbol = " "
+format = '[$symbol$version]($style) '
+style = "bold red"
+detect_files = ["Cargo.toml"]
+
+[golang]
+symbol = " "
+format = '[$symbol$version]($style) '
+style = "bold cyan"
+detect_files = ["go.mod"]
+
+[java]
+symbol = " "
+format = '[$symbol$version]($style) '
+style = "bold red"
+detect_files = ["pom.xml", "build.gradle"]

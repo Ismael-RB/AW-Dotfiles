@@ -1,0 +1,14 @@
+vim.opt.relativenumber = true       -- números relativos (moverte con hjkl es más fácil)
+vim.opt.scrolloff = 8               -- siempre 8 líneas visibles al scrollear
+vim.opt.sidescrolloff = 8
+vim.opt.wrap = false                -- sin word wrap
+vim.opt.conceallevel = 0            -- muestra todos los caracteres (no oculta nada)
+vim.opt.clipboard = "unnamedplus"   -- clipboard del sistema (wl-clipboard en Wayland)
+vim.opt.undofile = true             -- undo persistente entre sesiones
+vim.opt.undolevels = 10000
+vim.opt.smoothscroll = true         -- scroll suave (nvim 0.10+)
+vim.opt.splitright = true           -- splits abren a la derecha
+vim.opt.splitbelow = true           -- splits abren abajo
+vim.opt.pumblend = 10               -- menú de autocomplete semitransparente
+vim.opt.winblend = 10               -- ventanas flotantes semitransparentes
+vim.opt.guifont = "JetBrainsMono Nerd Font:h11"  -- misma fuente que Kitty

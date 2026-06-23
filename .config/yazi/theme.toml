@@ -1,0 +1,70 @@
+[flavor]
+use = ""
+
+[manager]
+cwd = { fg = "#606070" }
+
+hovered         = { fg = "#e0e0e6", bg = "#1a1a24", bold = true }
+preview_hovered = { underline = true }
+
+find_keyword  = { fg = "#aac080", bold = true }
+find_position = { fg = "#c0a080", bg = "reset", bold = true }
+
+marker_copied = { fg = "#aac080", bg = "#aac080" }
+marker_cut    = { fg = "#c08080", bg = "#c08080" }
+marker_marked = { fg = "#8090c0", bg = "#8090c0" }
+
+tab_active   = { fg = "#e0e0e6", bg = "#1a1a24" }
+tab_inactive = { fg = "#505060", bg = "#0c0c10" }
+
+border_symbol = "│"
+border_style  = { fg = "#252530" }
+
+[status]
+separator_open  = ""
+separator_close = ""
+separator_style = { fg = "#1a1a24", bg = "#1a1a24" }
+
+mode_normal  = { fg = "#0c0c10", bg = "#606070", bold = true }
+mode_select  = { fg = "#0c0c10", bg = "#aac080", bold = true }
+mode_unset   = { fg = "#0c0c10", bg = "#c0a080", bold = true }
+
+progress_label  = { fg = "#e0e0e6", bold = true }
+progress_normal = { fg = "#606070", bg = "#1a1a24" }
+progress_error  = { fg = "#c08080", bg = "#1a1a24" }
+
+permissions_t = { fg = "#606070" }
+permissions_r = { fg = "#aac080" }
+permissions_w = { fg = "#c0a080" }
+permissions_x = { fg = "#80a0c0" }
+permissions_s = { fg = "#c08080" }
+
+[input]
+cursor = { fg = "#0c0c10", bg = "#e0e0e6" }
+title  = { fg = "#e0e0e6", bold = true }
+value  = { fg = "#e0e0e6" }
+selected = { reversed = true }
+
+[completion]
+border   = { fg = "#252530" }
+active   = { bg = "#1a1a24" }
+inactive = { bg = "#0c0c10" }
+
+[filetype]
+rules = [
+    # imágenes
+    { mime = "image/*",    fg = "#80a0c0" },
+    # video / audio
+    { mime = "video/*",    fg = "#a080c0" },
+    { mime = "audio/*",    fg = "#a080c0" },
+    # código / texto
+    { mime = "text/*",     fg = "#c0c0c8" },
+    # archivos comprimidos
+    { mime = "application/zip",  fg = "#c0a080" },
+    { mime = "application/gzip", fg = "#c0a080" },
+    { mime = "application/x-tar",fg = "#c0a080" },
+    # pdf
+    { mime = "application/pdf",  fg = "#c08080" },
+    # carpetas
+    { mime = "inode/directory", fg = "#8090c0", bold = true },
+]
