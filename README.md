@@ -44,21 +44,68 @@ Configured for a fast, minimal, keyboard-driven Wayland desktop.
 
 ```
 .config/
-├── hypr/               # Hyprland compositor (Lua config + scripts)
-│   ├── hyprland.lua    # Main config
-│   ├── hyprlock.conf   # Lock screen
-│   ├── hypridle.conf   # Idle daemon
-│   └── scripts/        # Custom shell scripts
-├── waybar/             # Status bar config + CSS
-├── fish/               # Shell config
-├── nvim/               # Neovim (LazyVim-based)
-├── kitty/              # Terminal emulator
-├── tmux/               # Terminal multiplexer
-├── yazi/               # Terminal file manager
-├── mako/               # Notification daemon
-├── fastfetch/          # System info display
-├── btop/               # Resource monitor
-└── starship.toml       # Shell prompt
+├── hypr/                          # Hyprland compositor (Lua config + scripts)
+│   ├── hyprland.lua               # Main config
+│   ├── hyprlock.conf              # Lock screen
+│   ├── hypridle.conf              # Idle daemon
+│   └── scripts/                   # Custom shell scripts
+├── pipewire/filter-chain.conf.d/  # PipeWire speaker EQ (8-band LV2 + limiter)
+├── wireplumber/                   # WirePlumber default sink routing
+├── waybar/                        # Status bar config + CSS
+├── fish/                          # Shell config
+├── nvim/                          # Neovim (LazyVim-based)
+├── kitty/                         # Terminal emulator
+├── tmux/                          # Terminal multiplexer
+├── yazi/                          # Terminal file manager
+├── fastfetch/                     # System info display
+├── btop/                          # Resource monitor
+└── starship.toml                  # Shell prompt
+
+system/
+└── alienware-fan/
+    ├── alienware-fan              # Fan + CPU governor daemon
+    └── alienware-fan.service      # systemd service
+```
+
+---
+
+## Audio Tuning
+
+Custom **8-band parametric EQ** via PipeWire + LSP LV2 plugins, tuned specifically for the Alienware m16 R2's side-firing 2W speakers:
+
+- Lo-shelf cut at 60Hz — protects drivers from sub-bass they can't reproduce
+- Bell boost at 100Hz — adds punch without over-stressing the driver
+- Cuts at 180Hz / 280Hz / 380Hz — removes cabinet resonance and boxiness
+- Bell boost at 2500Hz — restores presence
+- Cut at 5500Hz — tames lateral sibilance
+- Hi-shelf boost at 10kHz — recovers air lost from the side-firing angle
+- Stereo limiter (-1dB threshold) — prevents clipping at high volumes
+
+Config: `.config/pipewire/filter-chain.conf.d/speakers-eq.conf`
+
+---
+
+## Fan & CPU Control
+
+Custom systemd daemon (`system/alienware-fan/`) that manages ACPI platform profiles and CPU energy performance preferences based on power source and thermal state:
+
+| Mode | Profile | EPP |
+|------|---------|-----|
+| `low` | quiet | power |
+| `normal` | balanced-performance | balance_power |
+| `gaming` | performance | performance |
+| battery | quiet | power |
+| emergency (>80°C for 45s) | performance | performance |
+
+Switches back to normal automatically when temperature drops below 72°C.  
+Mode is set via Waybar buttons — no manual editing needed.
+
+**Install:**
+```bash
+sudo cp system/alienware-fan/alienware-fan /usr/local/bin/
+sudo chmod +x /usr/local/bin/alienware-fan
+sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/
+sudo systemctl enable --now alienware-fan
 ```
 
 ---

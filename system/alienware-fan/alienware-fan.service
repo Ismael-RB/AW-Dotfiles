@@ -1,0 +1,12 @@
+[Unit]
+Description=Alienware m16 R2 fan control
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/alienware-fan
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
