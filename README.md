@@ -3,6 +3,8 @@
 Personal dotfiles for my **Alienware m16 R2** running **CachyOS Linux**.  
 Configured for a fast, minimal, keyboard-driven Wayland desktop.
 
+![Desktop Preview](assets/preview.png)
+
 ---
 
 ## Hardware
