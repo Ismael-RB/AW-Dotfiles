@@ -4,6 +4,7 @@ Personal dotfiles for my **Alienware m16 R2** running **CachyOS Linux**.
 Configured for a fast, minimal, keyboard-driven Wayland desktop.
 
 ![Desktop Preview](assets/preview.png)
+![Clean Desktop](assets/preview2.png)
 
 ---
 
@@ -82,6 +83,14 @@ Configured for a fast, minimal, keyboard-driven Wayland desktop.
 Written in **Lua** via `hyprland.lua` — avoids repetition and allows programmatic keybind and workspace definitions. Falls back to standard `hyprland.conf` for compatibility.
 
 Monitor is configured at **1.6x scale** for HiDPI (1.5x caused rendering artifacts on this panel).
+
+---
+
+## Wallpaper
+
+[Wallhaven — 1qg3q9](https://wallhaven.cc/w/1qg3q9) — Licensed CC0 (public domain)
+
+Wallpapers are **not included** in this repo. All images remain property of their original owners.
 
 ---
 
