@@ -51,7 +51,7 @@ ac_online() {
 set_hz() {
     local hz="$1"
     HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ 2>/dev/null | head -1) \
-        hyprctl eval "monitor('eDP-1', '2560x1600@${hz}', vec2(0,0), 1.6)" 2>/dev/null || true
+        hyprctl keyword monitor "eDP-1,2560x1600@${hz},0x0,1.6" > /dev/null 2>&1 || true
 }
 
 case "$1" in
