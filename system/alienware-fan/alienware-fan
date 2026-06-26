@@ -4,9 +4,9 @@ CONFIG_DIR="/etc/alienware-fan"
 MODE_FILE="$CONFIG_DIR/ac_mode"
 PROFILE_FILE="/sys/firmware/acpi/platform_profile"
 INTERVAL=5
-EMERGENCY_THRESHOLD=80
+EMERGENCY_THRESHOLD=90
 EMERGENCY_DURATION=45
-RECOVERY_THRESHOLD=72
+RECOVERY_THRESHOLD=82
 
 declare -A AC_PROFILES=(
     [low]="quiet"
@@ -95,6 +95,16 @@ high_since=0
 
 logger -t alienware-fan "started"
 
+notify_user() {
+    local urgency="$1" summary="$2" body="$3"
+    local uid display dbus
+    uid=$(id -u isma 2>/dev/null) || return
+    display=$(grep -z DISPLAY /proc/$(pgrep -u isma hyprland | head -1)/environ 2>/dev/null | tr -d '\0' | cut -d= -f2) || display=":0"
+    dbus=$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$(pgrep -u isma hyprland | head -1)/environ 2>/dev/null | tr -d '\0' | cut -d= -f2-) || return
+    sudo -u isma DISPLAY="$display" DBUS_SESSION_BUS_ADDRESS="$dbus" \
+        notify-send -u "$urgency" -t 4000 "$summary" "$body" 2>/dev/null || true
+}
+
 while true; do
     temp=$(get_cpu_temp)
     now=$(date +%s)
@@ -104,12 +114,14 @@ while true; do
         elapsed=$((now - high_since))
         if [ "$elapsed" -ge "$EMERGENCY_DURATION" ] && [ "$emergency" = false ]; then
             logger -t alienware-fan "EMERGENCY: ${temp}°C for ${elapsed}s — forcing performance"
+            notify_user critical "CPU thermal limit" "${temp}°C sustained ${elapsed}s — enforcing performance profile"
             emergency=true
         fi
     else
         high_since=0
         if [ "$emergency" = true ] && [ "$temp" -le "$RECOVERY_THRESHOLD" ]; then
             logger -t alienware-fan "recovery: ${temp}°C — back to normal mode"
+            notify_user normal "CPU temperature stable" "Back to ${temp}°C — normal mode restored"
             emergency=false
         fi
     fi
