@@ -98,10 +98,13 @@ case "$1" in
     status|"")
         ac_mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
         profile=$(cat "$PROFILE_FILE" 2>/dev/null || echo "?")
+        hz=$(HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ 2>/dev/null | head -1) \
+            hyprctl monitors 2>/dev/null | grep -oP '\d+\.\d+(?=Hz)' | head -1 | cut -d. -f1)
         ac_online && ac_status="connected" || ac_status="battery"
         echo "Mode:      $ac_mode  ($ac_status)"
         echo "Profile:   $profile"
         echo "EPP:       $(get_epp)"
+        echo "Hz:        ${hz:-?} Hz"
         echo "CPU temp:  $(get_cpu_temp)"
         echo "GPU temp:  $(get_gpu_temp)"
         echo "Fans:      $(get_fans)"
