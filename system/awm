@@ -49,7 +49,7 @@ ac_online() {
 }
 
 BRIGHTNESS_SAVE="/etc/alienware-fan/prev_brightness"
-LOW_BRIGHTNESS=50
+LOW_BRIGHTNESS=30
 
 set_hz() {
     local hz="$1"
