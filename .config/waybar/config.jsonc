@@ -43,6 +43,7 @@
 
     "custom/powerprofile": {
         "exec": "/home/isma/.config/waybar/power-profile.sh",
+        "on-click": "/home/isma/.config/waybar/set-mode.sh",
         "interval": 60,
         "signal": 9,
         "tooltip": false
