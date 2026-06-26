@@ -49,7 +49,7 @@ Configured for a fast, minimal, keyboard-driven Wayland desktop.
 │   ├── hyprlock.conf              # Lock screen
 │   ├── hypridle.conf              # Idle daemon
 │   └── scripts/                   # Custom shell scripts
-├── pipewire/filter-chain.conf.d/  # PipeWire speaker EQ (8-band LV2 + limiter)
+├── pipewire/filter-chain.conf.d/  # PipeWire speaker EQ (9-band LV2 + limiter)
 ├── wireplumber/                   # WirePlumber default sink routing
 ├── waybar/                        # Status bar config + CSS
 ├── fish/                          # Shell config
@@ -71,15 +71,22 @@ system/
 
 ## Audio Tuning
 
-Custom **8-band parametric EQ** via PipeWire + LSP LV2 plugins, tuned specifically for the Alienware m16 R2's side-firing 2W speakers:
+Custom **9-band parametric EQ** via PipeWire + LSP LV2 plugins (`para_equalizer_x16_stereo`), tuned specifically for the Alienware m16 R2's side-firing 2W speakers:
 
-- Lo-shelf cut at 60Hz — protects drivers from sub-bass they can't reproduce
-- Bell boost at 100Hz — adds punch without over-stressing the driver
-- Cuts at 180Hz / 280Hz / 380Hz — removes cabinet resonance and boxiness
-- Bell boost at 2500Hz — restores presence
-- Cut at 5500Hz — tames lateral sibilance
-- Hi-shelf boost at 10kHz — recovers air lost from the side-firing angle
-- Stereo limiter (-1dB threshold) — prevents clipping at high volumes
+| Band | Type | Freq | Gain | Purpose |
+|------|------|------|------|---------|
+| 0 | Lo-shelf | 80 Hz | −3.5 dB | Cuts sub-bass the drivers can't reproduce |
+| 1 | Bell | 130 Hz | +2.5 dB | Boosts real bass where the driver has energy |
+| 2 | Bell | 180 Hz | −1.5 dB | Removes cabinet resonance |
+| 3 | Bell | 380 Hz | −1.5 dB | Cuts nasal coloration from the plastic enclosure |
+| 4 | Bell | 2500 Hz | +1.5 dB | Restores presence and clarity |
+| 5 | Bell | 5000 Hz | −2.0 dB | Tames lateral sibilance |
+| 6 | Bell | 6500 Hz | −1.0 dB | Smooth transition into the hi-shelf |
+| 7 | Hi-shelf | 8000 Hz | +3.5 dB | Recovers air lost from the side-firing angle |
+| 8 | Bell | 12000 Hz | +1.5 dB | Restores high-end presence |
+
+- Preamp: −4.5 dB (headroom for the boosts)
+- Stereo limiter: −2 dB threshold, 50 ms release — prevents clipping at max volume
 
 Config: `.config/pipewire/filter-chain.conf.d/speakers-eq.conf`
 
