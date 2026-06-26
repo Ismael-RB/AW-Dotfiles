@@ -48,9 +48,32 @@ ac_online() {
     return 1
 }
 
+BRIGHTNESS_SAVE="/etc/alienware-fan/prev_brightness"
+LOW_BRIGHTNESS=50
+
 set_hz() {
     local hz="$1"
     WAYLAND_DISPLAY=wayland-1 wlr-randr --output eDP-1 --mode "2560x1600@${hz}.000000" > /dev/null 2>&1 || true
+}
+
+brightness_enter_low() {
+    local current
+    current=$(brightnessctl get 2>/dev/null) || return
+    local max
+    max=$(brightnessctl max 2>/dev/null) || return
+    local pct=$(( current * 100 / max ))
+    if [ "$pct" -gt "$LOW_BRIGHTNESS" ]; then
+        echo "$current" > "$BRIGHTNESS_SAVE"
+        brightnessctl set "${LOW_BRIGHTNESS}%" > /dev/null 2>&1
+    fi
+}
+
+brightness_leave_low() {
+    [ -f "$BRIGHTNESS_SAVE" ] || return
+    local saved
+    saved=$(cat "$BRIGHTNESS_SAVE")
+    brightnessctl set "${saved}" > /dev/null 2>&1
+    rm -f "$BRIGHTNESS_SAVE"
 }
 
 case "$1" in
@@ -61,12 +84,14 @@ case "$1" in
     low)
         echo "low" > "$MODE_FILE"
         set_hz 60
+        brightness_enter_low
         echo "Mode → low"
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
         ;;
     normal)
         echo "normal" > "$MODE_FILE"
         set_hz 240
+        brightness_leave_low
         echo "Mode → normal"
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
         ;;
@@ -78,6 +103,7 @@ case "$1" in
         fi
         echo "gaming" > "$MODE_FILE"
         set_hz 240
+        brightness_leave_low
         echo "Mode → gaming"
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
         ;;
@@ -90,10 +116,12 @@ case "$1" in
         if [ "$current" = "gaming" ]; then
             echo "normal" > "$MODE_FILE"
             set_hz 240
+            brightness_leave_low
             echo "Mode → normal"
         else
             echo "gaming" > "$MODE_FILE"
             set_hz 240
+            brightness_leave_low
             echo "Mode → gaming"
         fi
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
