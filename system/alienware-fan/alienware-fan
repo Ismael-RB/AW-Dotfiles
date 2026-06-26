@@ -4,9 +4,9 @@ CONFIG_DIR="/etc/alienware-fan"
 MODE_FILE="$CONFIG_DIR/ac_mode"
 PROFILE_FILE="/sys/firmware/acpi/platform_profile"
 INTERVAL=5
-EMERGENCY_THRESHOLD=90
+EMERGENCY_THRESHOLD=88
 EMERGENCY_DURATION=45
-RECOVERY_THRESHOLD=82
+RECOVERY_THRESHOLD=80
 
 declare -A AC_PROFILES=(
     [low]="quiet"
@@ -42,6 +42,14 @@ get_cpu_temp() {
         [ "$t" -gt "$max" ] && max=$t
     done
     echo "$max"
+}
+
+get_gpu_temp() {
+    local dir
+    dir=$(find_hwmon alienware_wmi) || return 1
+    local t
+    t=$(cat "${dir}temp2_input" 2>/dev/null) || return 1
+    echo $((t / 1000))
 }
 
 ac_online() {
@@ -106,22 +114,24 @@ notify_user() {
 }
 
 while true; do
-    temp=$(get_cpu_temp)
+    cpu_temp=$(get_cpu_temp)
+    gpu_temp=$(get_gpu_temp || echo 0)
+    temp=$(( cpu_temp > gpu_temp ? cpu_temp : gpu_temp ))
     now=$(date +%s)
 
     if [ "$temp" -ge "$EMERGENCY_THRESHOLD" ]; then
         [ "$high_since" -eq 0 ] && high_since=$now
         elapsed=$((now - high_since))
         if [ "$elapsed" -ge "$EMERGENCY_DURATION" ] && [ "$emergency" = false ]; then
-            logger -t alienware-fan "EMERGENCY: ${temp}°C for ${elapsed}s — forcing performance"
-            notify_user critical "CPU thermal limit" "${temp}°C sustained ${elapsed}s — enforcing performance profile"
+            logger -t alienware-fan "EMERGENCY: CPU ${cpu_temp}°C GPU ${gpu_temp}°C for ${elapsed}s — forcing performance"
+            notify_user critical "Thermal limit reached" "CPU ${cpu_temp}°C · GPU ${gpu_temp}°C · sustained ${elapsed}s"
             emergency=true
         fi
     else
         high_since=0
         if [ "$emergency" = true ] && [ "$temp" -le "$RECOVERY_THRESHOLD" ]; then
-            logger -t alienware-fan "recovery: ${temp}°C — back to normal mode"
-            notify_user normal "CPU temperature stable" "Back to ${temp}°C — normal mode restored"
+            logger -t alienware-fan "recovery: CPU ${cpu_temp}°C GPU ${gpu_temp}°C — back to normal mode"
+            notify_user normal "Temperature stable" "CPU ${cpu_temp}°C · GPU ${gpu_temp}°C — normal mode restored"
             emergency=false
         fi
     fi
