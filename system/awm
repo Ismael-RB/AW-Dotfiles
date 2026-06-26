@@ -1,0 +1,119 @@
+#!/bin/bash
+
+MODE_FILE="/etc/alienware-fan/ac_mode"
+PROFILE_FILE="/sys/firmware/acpi/platform_profile"
+
+find_hwmon() {
+    local name="$1"
+    for dir in /sys/class/hwmon/hwmon*/; do
+        [ "$(cat "${dir}name" 2>/dev/null)" = "$name" ] && echo "$dir" && return
+    done
+}
+
+get_cpu_temp() {
+    local dir
+    dir=$(find_hwmon coretemp) || return 1
+    local max=0
+    for f in "${dir}"temp*_input; do
+        local t; t=$(cat "$f" 2>/dev/null) || continue
+        t=$((t / 1000)); [ "$t" -gt "$max" ] && max=$t
+    done
+    echo "${max}°C"
+}
+
+get_gpu_temp() {
+    local dir t
+    dir=$(find_hwmon alienware_wmi) || { echo "?"; return; }
+    t=$(cat "${dir}temp2_input" 2>/dev/null) && echo "$((t / 1000))°C" || echo "?"
+}
+
+get_fans() {
+    local dir
+    dir=$(find_hwmon alienware_wmi) || return 1
+    local f1 f2
+    f1=$(cat "${dir}fan1_input" 2>/dev/null || echo "?")
+    f2=$(cat "${dir}fan2_input" 2>/dev/null || echo "?")
+    echo "fan1=${f1} RPM  fan2=${f2} RPM"
+}
+
+get_epp() {
+    cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference 2>/dev/null || echo "?"
+}
+
+ac_online() {
+    for f in /sys/class/power_supply/*/type; do
+        [ "$(cat "$f" 2>/dev/null)" = "Mains" ] || continue
+        [ "$(cat "${f%type}online" 2>/dev/null)" = "1" ] && return 0
+    done
+    return 1
+}
+
+set_hz() {
+    local hz="$1"
+    HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ 2>/dev/null | head -1) \
+        hyprctl keyword monitor "eDP-1,2560x1600@${hz},0x0,1.6" 2>/dev/null || true
+}
+
+case "$1" in
+    low)
+        echo "low" > "$MODE_FILE"
+        set_hz 60
+        echo "Mode → low"
+        pkill -SIGRTMIN+9 waybar 2>/dev/null || true
+        ;;
+    normal)
+        echo "normal" > "$MODE_FILE"
+        set_hz 60
+        echo "Mode → normal"
+        pkill -SIGRTMIN+9 waybar 2>/dev/null || true
+        ;;
+    gaming)
+        if ! ac_online; then
+            notify-send "AWM" "No AC — gaming not available" -t 2000
+            echo "No AC — gaming not available"
+            exit 1
+        fi
+        echo "gaming" > "$MODE_FILE"
+        set_hz 240
+        echo "Mode → gaming"
+        pkill -SIGRTMIN+9 waybar 2>/dev/null || true
+        ;;
+    toggle)
+        if ! ac_online; then
+            notify-send "AWM" "No AC — gaming not available" -t 2000
+            exit 0
+        fi
+        current=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
+        if [ "$current" = "gaming" ]; then
+            echo "normal" > "$MODE_FILE"
+            set_hz 60
+            echo "Mode → normal"
+        else
+            echo "gaming" > "$MODE_FILE"
+            set_hz 240
+            echo "Mode → gaming"
+        fi
+        pkill -SIGRTMIN+9 waybar 2>/dev/null || true
+        ;;
+    status|"")
+        ac_mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
+        profile=$(cat "$PROFILE_FILE" 2>/dev/null || echo "?")
+        ac_online && ac_status="connected" || ac_status="battery"
+        echo "Mode:      $ac_mode  ($ac_status)"
+        echo "Profile:   $profile"
+        echo "EPP:       $(get_epp)"
+        echo "CPU temp:  $(get_cpu_temp)"
+        echo "GPU temp:  $(get_gpu_temp)"
+        echo "Fans:      $(get_fans)"
+        ;;
+    *)
+        echo "Usage: awm [low|normal|gaming|toggle|status]"
+        echo ""
+        echo "  low     — silent       (quiet,               EPP: power)         60 Hz"
+        echo "  normal  — normal       (balanced-performance, EPP: balance_power)  60 Hz"
+        echo "  gaming  — max          (performance,          EPP: performance)   240 Hz  [AC only]"
+        echo "  toggle  — gaming ↔ normal  [AC only]"
+        echo "  status  — current status"
+        exit 1
+        ;;
+esac

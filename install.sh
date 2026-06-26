@@ -104,19 +104,24 @@ done
 
 # ── Fan daemon ────────────────────────────────────────────────────────────────
 
-section "Fan & CPU daemon (requires sudo)"
+section "Fan & CPU daemon + awm (requires sudo)"
 
 if $DRY_RUN; then
     echo "[dry-run] sudo cp system/alienware-fan/alienware-fan /usr/local/bin/"
     echo "[dry-run] sudo chmod +x /usr/local/bin/alienware-fan"
     echo "[dry-run] sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/"
     echo "[dry-run] sudo systemctl enable --now alienware-fan"
+    echo "[dry-run] sudo cp system/awm /usr/local/bin/awm"
+    echo "[dry-run] sudo chmod +x /usr/local/bin/awm"
 else
     sudo cp "$DOTFILES/system/alienware-fan/alienware-fan" /usr/local/bin/
     sudo chmod +x /usr/local/bin/alienware-fan
     sudo cp "$DOTFILES/system/alienware-fan/alienware-fan.service" /etc/systemd/system/
     sudo systemctl enable --now alienware-fan
     echo "  enabled:   alienware-fan.service"
+    sudo cp "$DOTFILES/system/awm" /usr/local/bin/awm
+    sudo chmod +x /usr/local/bin/awm
+    echo "  installed: /usr/local/bin/awm"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
