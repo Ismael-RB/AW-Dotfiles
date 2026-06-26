@@ -35,18 +35,19 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("~/.config/hypr/scripts/wal-reload.sh")
     hl.exec_cmd("waybar")
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("mako")
     hl.exec_cmd("awww-daemon")
+    hl.exec_cmd("~/.config/hypr/scripts/headphones-eq-bypass.sh")
     hl.exec_cmd("~/.config/hypr/scripts/wallpaper-cycle.sh current")
+    hl.exec_cmd("~/.config/hypr/scripts/wallpaper-timer.sh")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 24")
     hl.exec_cmd("~/.config/hypr/scripts/ws1-fetch.sh")
-    hl.exec_cmd("~/.config/hypr/scripts/battery-notify.sh")
-    hl.exec_cmd("~/.config/hypr/scripts/bluetooth-notify.sh")
+
     hl.exec_cmd("[workspace special:scratch silent; float; size 920 540; center] kitty --class scratchpad")
     hl.exec_cmd("swayosd-server")
     hl.exec_cmd("xrdb -merge ~/.Xresources")
+    hl.exec_cmd("awm sync")
 end)
 
 
@@ -58,6 +59,7 @@ hl.env("STEAM_FRAME_FORCE_CLOSE",       "1")
 hl.env("STEAM_FORCE_DESKTOPUI_SCALING", "1.6")
 hl.env("XCURSOR_THEME",                 "Bibata-Modern-Ice")
 hl.env("XCURSOR_SIZE",                  "24")
+hl.env("HYPRCURSOR_THEME",              "Bibata-Modern-Ice")
 hl.env("HYPRCURSOR_SIZE",               "24")
 hl.env("GTK_THEME",                     "Adwaita-dark")
 hl.env("QT_QPA_PLATFORMTHEME",          "qt6ct")
@@ -105,6 +107,10 @@ hl.config({
 
     animations = {
         enabled = true,
+    },
+
+    cursor = {
+        inactive_timeout = 3,
     },
 
     xwayland = {

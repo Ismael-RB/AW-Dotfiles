@@ -55,6 +55,10 @@ set_hz() {
 }
 
 case "$1" in
+    sync)
+        current=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
+        [ "$current" = "gaming" ] && set_hz 240 || set_hz 60
+        ;;
     low)
         echo "low" > "$MODE_FILE"
         set_hz 60
