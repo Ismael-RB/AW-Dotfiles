@@ -182,14 +182,23 @@ Wallpapers are **not included** in this repo. All images remain property of thei
 
 ## Installation
 
-> These are personal configs — install selectively, not blindly.
+> These are personal configs for the Alienware m16 R2 — install selectively, not blindly.
 
 ```bash
 git clone https://github.com/Ismael-RB/AW-Dotfiles.git
 cd AW-Dotfiles
-
-# Copy what you need, e.g.:
-cp -r .config/hypr ~/.config/
-cp -r .config/fish ~/.config/
-cp .config/starship.toml ~/.config/
+./install.sh
 ```
+
+Use `--dry-run` to see what would be installed without writing anything:
+
+```bash
+./install.sh --dry-run
+```
+
+The script:
+- Copies all `.config/` dirs to `~/.config/`, backing up existing ones as `.bak`
+- Skips `fish/fish_variables` (machine-specific Fish state)
+- Installs the PipeWire EQ and restarts `pipewire`
+- Makes all scripts in `hypr/scripts/` and `waybar/` executable
+- Installs and enables the fan daemon (requires sudo)
