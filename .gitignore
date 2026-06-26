@@ -3,7 +3,6 @@
 .config/spotify/
 .config/dconf/
 .config/pulse/
-.config/pipewire/
 .config/session/
 .config/tool_state/
 .config/cachyos/
