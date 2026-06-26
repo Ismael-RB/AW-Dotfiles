@@ -71,22 +71,33 @@ system/
 
 ## Audio Tuning
 
-Custom **9-band parametric EQ** via PipeWire + LSP LV2 plugins (`para_equalizer_x16_stereo`), tuned specifically for the Alienware m16 R2's side-firing 2W speakers:
+Custom **9-band parametric EQ** via PipeWire + LSP LV2 plugins (`para_equalizer_x16_stereo`), tuned specifically for the Alienware m16 R2's side-firing 2W speakers.
 
-| Band | Type | Freq | Gain | Purpose |
-|------|------|------|------|---------|
-| 0 | Lo-shelf | 80 Hz | −3.5 dB | Cuts sub-bass the drivers can't reproduce |
-| 1 | Bell | 130 Hz | +2.5 dB | Boosts real bass where the driver has energy |
-| 2 | Bell | 180 Hz | −1.5 dB | Removes cabinet resonance |
-| 3 | Bell | 380 Hz | −1.5 dB | Cuts nasal coloration from the plastic enclosure |
-| 4 | Bell | 2500 Hz | +1.5 dB | Restores presence and clarity |
-| 5 | Bell | 5000 Hz | −2.0 dB | Tames lateral sibilance |
-| 6 | Bell | 6500 Hz | −1.0 dB | Smooth transition into the hi-shelf |
-| 7 | Hi-shelf | 8000 Hz | +3.5 dB | Recovers air lost from the side-firing angle |
-| 8 | Bell | 12000 Hz | +1.5 dB | Restores high-end presence |
+### Why these speakers need EQ
 
-- Preamp: −4.5 dB (headroom for the boosts)
-- Stereo limiter: −2 dB threshold, 50 ms release — prevents clipping at max volume
+The m16 R2 drivers are side-firing, aimed at the desk surface rather than your face. This creates three physical problems:
+
+1. **They can't reproduce sub-bass** — the drivers are too small. Without a cut, they distort and waste power trying to reproduce frequencies they can't, with no audible result.
+2. **The plastic enclosure colors the sound** — cheap laptop cabinets resonate at specific frequencies (~180–400 Hz), producing the "tinny" or "boxy" character typical of laptop speakers.
+3. **The side angle kills air and presence** — high frequencies are directional. Pointed at the desk, they arrive at your ears attenuated compared to a front-facing speaker.
+
+### Band decisions
+
+| Band | Type | Freq | Gain | Reason |
+|------|------|------|------|--------|
+| 0 | Lo-shelf | 80 Hz | −3.5 dB | Conservative cut — the driver has some energy here, so a shelf (not a hard cut) protects without sounding thin |
+| 1 | Bell | 130 Hz | +2.5 dB | Where the driver actually has physical energy; boosting here adds weight without pushing the driver out of its safe range |
+| 2 | Bell | 180 Hz | −1.5 dB | Cabinet resonance — the box itself rings here, creating a "boomy" one-note bass |
+| 3 | Bell | 380 Hz | −1.5 dB | Nasal coloration from the plastic enclosure; cut separately from 180 Hz because it has a different Q |
+| 4 | Bell | 2500 Hz | +1.5 dB | The presence region — where the brain perceives clarity. Side-firing loses it; boosting here puts voices and instruments back in front of you |
+| 5 | Bell | 5000 Hz | −2.0 dB | Lateral drivers create artificial sibilance around 5 kHz as the signal bounces off surfaces; cutting reduces listening fatigue |
+| 6 | Bell | 6500 Hz | −1.0 dB | Smooth bridge between the 5k cut and the hi-shelf — without this the shelf would create an abrupt, unnatural peak |
+| 7 | Hi-shelf | 8000 Hz | +3.5 dB | The most aggressive boost: everything above 8 kHz is heavily attenuated by the side angle; without this the sound is dull and closed-in |
+| 8 | Bell | 12000 Hz | +1.5 dB | Restores high-end shimmer; at 12k desk reflections no longer interfere, so it can be boosted without sounding harsh |
+
+**Preamp: −4.5 dB** — the boosts add gain. Pulling down the input first gives the boosts room to push without the signal clipping before the limiter.
+
+**Stereo limiter: −2 dB threshold, 50 ms release** — hardware safety net. At max volume the system can demand more power than 2W drivers can handle. The limiter clips peaks before they reach the driver; the 50 ms release avoids audible pumping on music.
 
 Config: `.config/pipewire/filter-chain.conf.d/speakers-eq.conf`
 
