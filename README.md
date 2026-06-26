@@ -22,21 +22,20 @@ Configured for a fast, minimal, keyboard-driven Wayland desktop.
 
 ## Software Stack
 
-| Role | Tool |
-|------|------|
-| **OS** | [CachyOS](https://cachyos.org) (Arch-based, optimized kernel) |
-| **Compositor** | [Hyprland](https://hyprland.org) (Wayland, config in Lua) |
-| **Shell** | [Fish](https://fishshell.com) |
-| **Prompt** | [Starship](https://starship.rs) |
-| **Terminal** | [Kitty](https://sw.kovidgoyal.net/kitty) |
-| **Editor** | [Neovim](https://neovim.io) + [LazyVim](https://lazyvim.org) |
-| **Bar** | [Waybar](https://github.com/Alexays/Waybar) |
-| **Notifications** | [Mako](https://github.com/emersion/mako) |
-| **File Manager** | [Yazi](https://github.com/sxyazi/yazi) |
-| **Multiplexer** | [Tmux](https://github.com/tmux/tmux) |
-| **System Monitor** | [Btop](https://github.com/aristocratos/btop) |
-| **App Launcher** | [Fuzzel](https://codeberg.org/dnkl/fuzzel) |
-| **Navigation** | [Zoxide](https://github.com/ajeetdsouza/zoxide) |
+| Role | Tool | Why |
+|------|------|-----|
+| **OS** | [CachyOS](https://cachyos.org) | Arch-based with BORE scheduler and kernel patches tuned for the Core Ultra 7 155H's three-tier core topology (P + E + LP-E cores). Vanilla Arch works, but scheduling is noticeably worse under mixed workloads |
+| **Compositor** | [Hyprland](https://hyprland.org) | Wayland-native with first-class NVIDIA support via explicit sync. X11 compositors had tearing and sync issues with the RTX 4050 on this panel |
+| **Shell** | [Fish](https://fishshell.com) | |
+| **Prompt** | [Starship](https://starship.rs) | |
+| **Terminal** | [Kitty](https://sw.kovidgoyal.net/kitty) | GPU-accelerated rendering — offloads terminal drawing to the RTX 4050, noticeably faster with large outputs or heavy tmux layouts |
+| **Editor** | [Neovim](https://neovim.io) + [LazyVim](https://lazyvim.org) | |
+| **Bar** | [Waybar](https://github.com/Alexays/Waybar) | |
+| **File Manager** | [Yazi](https://github.com/sxyazi/yazi) | |
+| **Multiplexer** | [Tmux](https://github.com/tmux/tmux) | |
+| **System Monitor** | [Btop](https://github.com/aristocratos/btop) | |
+| **App Launcher** | [Fuzzel](https://codeberg.org/dnkl/fuzzel) | Pure Wayland — no XWayland dependency, faster cold start than rofi/wofi |
+| **Navigation** | [Zoxide](https://github.com/ajeetdsouza/zoxide) | |
 
 ---
 
@@ -147,13 +146,6 @@ sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/
 sudo systemctl enable --now alienware-fan
 ```
 
-**Install:**
-```bash
-sudo cp system/alienware-fan/alienware-fan /usr/local/bin/
-sudo chmod +x /usr/local/bin/alienware-fan
-sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/
-sudo systemctl enable --now alienware-fan
-```
 
 ---
 
