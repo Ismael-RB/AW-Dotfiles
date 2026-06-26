@@ -101,8 +101,7 @@ case "$1" in
     status|"")
         ac_mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
         profile=$(cat "$PROFILE_FILE" 2>/dev/null || echo "?")
-        hz=$(HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ 2>/dev/null | head -1) \
-            hyprctl monitors 2>/dev/null | grep -oP '\d+\.\d+(?=Hz)' | head -1 | cut -d. -f1)
+        hz=$(wlr-randr 2>/dev/null | grep "current" | grep -oP '[\d]+(?=\.\d+ Hz)' | head -1)
         ac_online && ac_status="connected" || ac_status="battery"
         echo "Mode:      $ac_mode  ($ac_status)"
         echo "Profile:   $profile"
