@@ -57,7 +57,7 @@ set_hz() {
 case "$1" in
     sync)
         current=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
-        [ "$current" = "gaming" ] && set_hz 240 || set_hz 60
+        [ "$current" = "low" ] && set_hz 60 || set_hz 240
         ;;
     low)
         echo "low" > "$MODE_FILE"
@@ -67,7 +67,7 @@ case "$1" in
         ;;
     normal)
         echo "normal" > "$MODE_FILE"
-        set_hz 60
+        set_hz 240
         echo "Mode → normal"
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
         ;;
@@ -90,7 +90,7 @@ case "$1" in
         current=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
         if [ "$current" = "gaming" ]; then
             echo "normal" > "$MODE_FILE"
-            set_hz 60
+            set_hz 240
             echo "Mode → normal"
         else
             echo "gaming" > "$MODE_FILE"
@@ -117,7 +117,7 @@ case "$1" in
         echo "Usage: awm [low|normal|gaming|toggle|status]"
         echo ""
         echo "  low     — silent       (quiet,               EPP: power)         60 Hz"
-        echo "  normal  — normal       (balanced-performance, EPP: balance_power)  60 Hz"
+        echo "  normal  — normal       (balanced-performance, EPP: balance_power) 240 Hz"
         echo "  gaming  — max          (performance,          EPP: performance)   240 Hz  [AC only]"
         echo "  toggle  — gaming ↔ normal  [AC only]"
         echo "  status  — current status"
