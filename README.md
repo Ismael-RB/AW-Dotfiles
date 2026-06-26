@@ -105,18 +105,47 @@ Config: `.config/pipewire/filter-chain.conf.d/speakers-eq.conf`
 
 ## Fan & CPU Control
 
-Custom systemd daemon (`system/alienware-fan/`) that manages ACPI platform profiles and CPU energy performance preferences based on power source and thermal state:
+Custom systemd daemon (`system/alienware-fan/`) that manages ACPI platform profiles and CPU energy performance preferences based on power source and thermal state. Polls every 5 seconds.
 
-| Mode | Profile | EPP |
-|------|---------|-----|
-| `low` | quiet | power |
-| `normal` | balanced-performance | balance_power |
-| `gaming` | performance | performance |
-| battery | quiet | power |
-| emergency (>80°C for 45s) | performance | performance |
+### Manual modes (set via Waybar buttons)
 
-Switches back to normal automatically when temperature drops below 72°C.  
-Mode is set via Waybar buttons — no manual editing needed.
+| Mode | ACPI Profile | EPP | Governor |
+|------|-------------|-----|----------|
+| `low` | quiet | power | powersave |
+| `normal` | balanced-performance | balance_power | powersave |
+| `gaming` | performance | performance | performance |
+
+### Thermal protection — sustained gaming
+
+The daemon includes an emergency mode designed specifically for sustained gaming loads where the CPU stays hot for extended periods:
+
+- If CPU temperature stays **≥ 80°C for 45 consecutive seconds** → forces `performance` profile + `performance` EPP + `performance` governor, overriding whatever mode was selected
+- Emergency mode exits only when temperature drops to **≤ 72°C** (8°C hysteresis to prevent oscillation between states)
+
+The logic exists because gaming mode alone isn't always enough: the ACPI `performance` profile tells the firmware to spin fans up, but if the game is running a fixed workload the thermal envelope can still saturate. The emergency trigger acts as a second enforcement layer — it re-applies the profile and governor at the OS level, which can break the saturation cycle.
+
+The 45-second delay avoids false positives from burst loads (compilation, shader compilation at game launch) that spike temperature briefly then cool on their own.
+
+### Battery behavior
+
+On battery the daemon overrides the user-selected mode silently:
+
+| Condition | Forced to |
+|-----------|-----------|
+| Gaming mode selected on battery | Downgraded to `normal` (balanced-performance / balance_power) |
+| Screen locked (hyprlock active) | `quiet` / `power` — minimal draw while idle |
+| Any other mode on battery | Respected as-is |
+
+Gaming mode is downgraded on battery because `performance` EPP + governor with no AC means the CPU will drain the battery in minutes and throttle anyway once voltage drops — so it's pointless and damaging to battery longevity.
+
+### Install
+
+```bash
+sudo cp system/alienware-fan/alienware-fan /usr/local/bin/
+sudo chmod +x /usr/local/bin/alienware-fan
+sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/
+sudo systemctl enable --now alienware-fan
+```
 
 **Install:**
 ```bash
