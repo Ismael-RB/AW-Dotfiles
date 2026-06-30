@@ -79,11 +79,15 @@ brightness_leave_low() {
 case "$1" in
     sync)
         current=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
-        [ "$current" = "low" ] && set_hz 60 || set_hz 240
+        if [ "$current" = "gaming" ] && ! ac_online; then
+            current="normal"
+            echo "normal" > "$MODE_FILE"
+        fi
+        set_hz 240
         ;;
     low)
         echo "low" > "$MODE_FILE"
-        set_hz 60
+        set_hz 240
         brightness_enter_low
         echo "Mode → low"
         pkill -SIGRTMIN+9 waybar 2>/dev/null || true
@@ -142,7 +146,7 @@ case "$1" in
     *)
         echo "Usage: awm [low|normal|gaming|toggle|status]"
         echo ""
-        echo "  low     — silent       (quiet,               EPP: power)         60 Hz"
+        echo "  low     — silent       (quiet,               EPP: power)         240 Hz"
         echo "  normal  — normal       (balanced-performance, EPP: balance_power) 240 Hz"
         echo "  gaming  — max          (performance,          EPP: performance)   240 Hz  [AC only]"
         echo "  toggle  — gaming ↔ normal  [AC only]"

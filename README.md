@@ -61,9 +61,12 @@ Configured for a fast, minimal, keyboard-driven Wayland desktop.
 └── starship.toml                  # Shell prompt
 
 system/
-└── alienware-fan/
-    ├── alienware-fan              # Fan + CPU governor daemon
-    └── alienware-fan.service      # systemd service
+├── alienware-fan/
+│   ├── alienware-fan              # Fan + CPU governor daemon
+│   └── alienware-fan.service      # systemd service
+└── auto-mode/
+    ├── auto-mode                  # GPU-load detector — auto-switches gaming mode
+    └── auto-mode.service          # systemd service
 ```
 
 ---
@@ -108,22 +111,32 @@ Custom systemd daemon (`system/alienware-fan/`) that manages ACPI platform profi
 
 ### Manual modes (set via Waybar buttons)
 
-| Mode | ACPI Profile | EPP | Governor |
-|------|-------------|-----|----------|
-| `low` | quiet | power | powersave |
-| `normal` | balanced-performance | balance_power | powersave |
-| `gaming` | performance | performance | performance |
+| Mode | ACPI Profile | EPP | Governor | Hz |
+|------|-------------|-----|----------|----|
+| `low` | quiet | power | powersave | 240 |
+| `normal` | balanced-performance | balance_power | powersave | 240 |
+| `gaming` | performance | performance | performance | 240 |
+
+### Fan boost curves
+
+The daemon controls `fan1_boost` / `fan2_boost` directly via `alienware_wmi`, on top of whatever baseline the ACPI profile sets. Each mode has independent CPU/GPU curves (temperature → boost %) with ramp rate limits and a deadband to prevent oscillation.
+
+Key design decision — **gaming mode floor is 22 % / 20 %** (CPU / GPU fan). The reason: at low boost (~8 %) fans sit near their minimum stable RPM. Any CPU burst forces a large sudden acceleration, which causes an audible rasping from the motor. With a 22 % floor the fans already have inertia before load arrives, so the jump is small and inaudible. This was validated by correlating live RPM telemetry with a CPU spike to 94 °C.
+
+Smooth transitions between modes bridge the firmware's instantaneous profile change with an intermediate step to avoid abrupt RPM swings.
 
 ### Thermal protection — sustained gaming
 
-The daemon includes an emergency mode designed specifically for sustained gaming loads where the CPU stays hot for extended periods:
+The daemon tracks CPU and GPU emergencies independently:
 
-- If CPU temperature stays **≥ 80°C for 45 consecutive seconds** → forces `performance` profile + `performance` EPP + `performance` governor, overriding whatever mode was selected
-- Emergency mode exits only when temperature drops to **≤ 72°C** (8°C hysteresis to prevent oscillation between states)
+| Sensor | Trigger | Duration | Recovery |
+|--------|---------|----------|----------|
+| CPU | ≥ 92 °C | 30 s sustained | ≤ 85 °C |
+| GPU | ≥ 85 °C | 30 s sustained | ≤ 78 °C |
 
-The logic exists because gaming mode alone isn't always enough: the ACPI `performance` profile tells the firmware to spin fans up, but if the game is running a fixed workload the thermal envelope can still saturate. The emergency trigger acts as a second enforcement layer — it re-applies the profile and governor at the OS level, which can break the saturation cycle.
+On emergency: forces `performance` profile + max boost on the affected fan. The other fan continues following its normal curve. Desktop notification sent via `notify-send`.
 
-The 45-second delay avoids false positives from burst loads (compilation, shader compilation at game launch) that spike temperature briefly then cool on their own.
+The 30-second delay avoids false positives from burst loads (shader compilation, game launch) that spike temperature briefly then cool on their own.
 
 ### Battery behavior
 
@@ -144,6 +157,37 @@ sudo cp system/alienware-fan/alienware-fan /usr/local/bin/
 sudo chmod +x /usr/local/bin/alienware-fan
 sudo cp system/alienware-fan/alienware-fan.service /etc/systemd/system/
 sudo systemctl enable --now alienware-fan
+```
+
+---
+
+## Auto-Mode
+
+`system/auto-mode/` — a lightweight systemd service that watches GPU utilization and automatically switches between gaming and normal/low mode.
+
+### Why it exists
+
+Playing a demanding game in `normal` mode uses the normal fan curve (low floor, less aggressive ramp). The CPU/GPU can spike before the fans respond, causing audible rasping and suboptimal performance. Instead of relying on the user to remember to switch mode before launching a game, auto-mode detects the load and switches for them.
+
+### Logic
+
+| GPU utilization | Duration | Action |
+|----------------|----------|--------|
+| ≥ 50 % | 20 s sustained | Switch to `gaming`, save previous mode |
+| < 15 % | 90 s sustained | Restore saved mode (`normal` or `low`) |
+
+- Only intervenes when the current mode is `normal` or `low` — never overrides a manually-set `gaming` mode
+- Requires AC power (gaming mode unavailable on battery)
+- Sends a desktop notification on each automatic switch
+- The 90-second cooldown covers loading screens and cutscenes without prematurely switching back
+
+### Install
+
+```bash
+sudo cp system/auto-mode/auto-mode /usr/local/bin/
+sudo chmod +x /usr/local/bin/auto-mode
+sudo cp system/auto-mode/auto-mode.service /etc/systemd/system/
+sudo systemctl enable --now auto-mode
 ```
 
 

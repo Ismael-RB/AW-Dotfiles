@@ -1,0 +1,87 @@
+#!/bin/bash
+# auto-mode: detecta carga de juego por GPU y activa gaming automáticamente
+# - low o normal + GPU >50% por 20s  → activa gaming
+# - gaming auto-activado + GPU <15% por 90s → regresa al modo anterior
+# - nunca interfiere si el usuario puso gaming manualmente
+
+MODE_FILE=/etc/alienware-fan/ac_mode
+FLAG=/tmp/auto-mode-prev   # guarda el modo anterior cuando activamos gaming
+GPU_ON_THRESHOLD=50
+GPU_OFF_THRESHOLD=15
+ON_SECS=20
+OFF_SECS=90
+
+ac_online() {
+    for f in /sys/class/power_supply/*/type; do
+        [ "$(cat "$f" 2>/dev/null)" = "Mains" ] || continue
+        [ "$(cat "${f%type}online" 2>/dev/null)" = "1" ] && return 0
+    done
+    return 1
+}
+
+notify() {
+    local urgency="$1" title="$2" body="$3"
+    local dbus
+    dbus=$(grep -z DBUS_SESSION_BUS_ADDRESS \
+        /proc/$(pgrep -u isma hyprland | head -1)/environ 2>/dev/null \
+        | tr -d '\0' | cut -d= -f2-) || return
+    sudo -u isma DBUS_SESSION_BUS_ADDRESS="$dbus" \
+        notify-send -u "$urgency" -t 5000 "$title" "$body" 2>/dev/null || true
+}
+
+gpu_util() {
+    nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | tr -d ' '
+}
+
+high_since=0
+low_since=0
+
+logger -t auto-mode "iniciado"
+
+while true; do
+    mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
+    gpu=$(gpu_util)
+    now=$(date +%s)
+
+    if ! ac_online; then
+        high_since=0
+        sleep 5
+        continue
+    fi
+
+    # ── Detectar inicio de juego ─────────────────────────────────────────────
+    if [ "${gpu:-0}" -ge "$GPU_ON_THRESHOLD" ] 2>/dev/null; then
+        [ "$high_since" -eq 0 ] && high_since=$now
+        low_since=0
+
+        elapsed=$(( now - high_since ))
+        # Actuar si estamos en low o normal y aún no hemos auto-activado gaming
+        if [ "$elapsed" -ge "$ON_SECS" ] && [ ! -f "$FLAG" ] && \
+           { [ "$mode" = "normal" ] || [ "$mode" = "low" ]; }; then
+            echo "$mode" > "$FLAG"   # recordar modo anterior
+            awm gaming
+            logger -t auto-mode "gaming activado desde '$mode' (GPU=${gpu}% por ${elapsed}s)"
+            notify normal "Auto-Mode" "Juego detectado — activando gaming mode"
+        fi
+
+    # ── Detectar fin de juego ────────────────────────────────────────────────
+    elif [ "${gpu:-0}" -lt "$GPU_OFF_THRESHOLD" ] 2>/dev/null; then
+        [ "$low_since" -eq 0 ] && low_since=$now
+        high_since=0
+
+        elapsed=$(( now - low_since ))
+        if [ "$elapsed" -ge "$OFF_SECS" ] && [ -f "$FLAG" ]; then
+            prev=$(cat "$FLAG")
+            rm -f "$FLAG"
+            awm "$prev"
+            logger -t auto-mode "restaurado a '$prev' (GPU=${gpu}% por ${elapsed}s)"
+            notify low "Auto-Mode" "Juego terminado — regresando a $prev"
+        fi
+
+    else
+        # GPU en zona media (15-50%) — resetear contador de bajada
+        low_since=0
+    fi
+
+    sleep 5
+done

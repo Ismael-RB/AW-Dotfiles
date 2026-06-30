@@ -4,22 +4,21 @@ CONFIG_DIR="/etc/alienware-fan"
 MODE_FILE="$CONFIG_DIR/ac_mode"
 PROFILE_FILE="/sys/firmware/acpi/platform_profile"
 INTERVAL=5
-EMERGENCY_THRESHOLD=88
-EMERGENCY_DURATION=45
-RECOVERY_THRESHOLD=80
+MAX_BOOST=90
+TEMP_SAMPLES=3
+TEMP_HYSTERESIS=4
+EMERGENCY_CPU_THRESHOLD=92
+EMERGENCY_GPU_THRESHOLD=85
+EMERGENCY_DURATION=30
+RECOVERY_CPU_THRESHOLD=85
+RECOVERY_GPU_THRESHOLD=78
 
 declare -A AC_PROFILES=(
     [low]="quiet"
     [normal]="balanced-performance"
     [gaming]="performance"
 )
-declare -A AC_EPP=(
-    [low]="power"
-    [normal]="balance_power"
-    [gaming]="performance"
-)
 BATTERY_LOCKED_PROFILE="quiet"
-BATTERY_LOCKED_EPP="power"
 
 mkdir -p "$CONFIG_DIR"
 [ -f "$MODE_FILE" ] || echo "normal" > "$MODE_FILE"
@@ -32,9 +31,8 @@ find_hwmon() {
 }
 
 get_cpu_temp() {
-    local dir
+    local dir max=0
     dir=$(find_hwmon coretemp) || return 1
-    local max=0
     for f in "${dir}"temp*_input; do
         local t
         t=$(cat "$f" 2>/dev/null) || continue
@@ -45,9 +43,8 @@ get_cpu_temp() {
 }
 
 get_gpu_temp() {
-    local dir
+    local dir t
     dir=$(find_hwmon alienware_wmi) || return 1
-    local t
     t=$(cat "${dir}temp2_input" 2>/dev/null) || return 1
     echo $((t / 1000))
 }
@@ -55,53 +52,173 @@ get_gpu_temp() {
 ac_online() {
     for f in /sys/class/power_supply/*/type; do
         [ "$(cat "$f" 2>/dev/null)" = "Mains" ] || continue
-        online="${f%type}online"
+        local online="${f%type}online"
         [ "$(cat "$online" 2>/dev/null)" = "1" ] && return 0
     done
     return 1
 }
 
+# Curves: temp°C → boost%
+# fan1 (CPU) and fan2 (GPU) controlled independently via pwm1_auto_channels_temp mapping.
+# Boost 0% = firmware baseline for active profile; MAX_BOOST (90%) ≈ 6000 RPM ceiling.
+#
+# gaming_cpu — Ultra 7 155H, Tjmax 100°C, real editing load 60–80°C
+# gaming_gpu — RTX 4050 Max-Q, throttle onset 87°C, real editing load 65–78°C
+temp_to_boost() {
+    local temp="$1" mode="${2:-normal}" fan="${3:-cpu}"
+    local -a t b
+
+    case "${mode}_${fan}" in
+        gaming_cpu) t=(58 68 76 82 88);    b=(22 36 50 65 86) ;;
+        gaming_gpu) t=(60 66 72 78 82 85); b=(20 30 45 62 80 90) ;;
+        normal_cpu) t=(50 60 70 78 84 88); b=( 3 10 22 38 55 83) ;;
+        normal_gpu) t=(52 62 70 76 82 84); b=( 3  9 20 35 55 68) ;;
+        low_cpu|\
+        low_gpu)    t=(55 65 75 83 88);    b=( 0  8 20 40 80)    ;;
+        *)          t=(50 60 70 80 85 90); b=( 5 15 30 50 70 85) ;;
+    esac
+
+    local n=${#t[@]}
+    if [ "$temp" -le "${t[0]}" ]; then echo "${b[0]}"; return; fi
+    if [ "$temp" -ge "${t[$((n-1))]}" ]; then echo "${b[$((n-1))]}"; return; fi
+    for (( i=1; i<n; i++ )); do
+        if [ "$temp" -le "${t[$i]}" ]; then
+            local t0="${t[$((i-1))]}" t1="${t[$i]}"
+            local b0="${b[$((i-1))]}" b1="${b[$i]}"
+            echo $(( b0 + (temp - t0) * (b1 - b0) / (t1 - t0) ))
+            return
+        fi
+    done
+}
+
+# Smooth raw temps: rolling average over TEMP_SAMPLES cycles + hysteresis.
+# Returns the effective temperature used for fan curves.
+# Emergencies bypass this and use raw temps directly.
+smooth_temp() {
+    local hist_name="$1" peak_name="$2" raw="$3"
+    local -n _hist="$hist_name"
+    local -n _peak="$peak_name"
+
+    _hist+=("$raw")
+    [ "${#_hist[@]}" -gt "$TEMP_SAMPLES" ] && _hist=("${_hist[@]:1}")
+
+    local sum=0
+    for v in "${_hist[@]}"; do sum=$((sum + v)); done
+    local avg=$((sum / ${#_hist[@]}))
+
+    if [ "$avg" -gt "$_peak" ]; then
+        _peak=$avg
+    elif [ "$avg" -lt $((_peak - TEMP_HYSTERESIS)) ]; then
+        _peak=$avg
+    fi
+
+    echo "$_peak"
+}
+
+reset_temp_history() {
+    cpu_hist=()
+    gpu_hist=()
+    cpu_peak=0
+    gpu_peak=0
+}
+
+fan_dir=""
+boost_fan1=-1
+boost_fan2=-1
+
+init_fan_dir() {
+    fan_dir=$(find_hwmon alienware_wmi) || return 1
+}
+
+set_boost_fan() {
+    local fan="$1" val="$2"
+    [ -z "$fan_dir" ] && return
+    [ "$val" -gt "$MAX_BOOST" ] && val=$MAX_BOOST
+    [ "$val" -lt 0 ] && val=0
+    echo "$val" > "${fan_dir}fan${fan}_boost" 2>/dev/null
+}
+
+release_fan_control() {
+    [ -z "$fan_dir" ] && return
+    set_boost_fan 1 0
+    set_boost_fan 2 0
+    boost_fan1=-1
+    boost_fan2=-1
+    logger -t alienware-fan "fan boost → released (0% / firmware)"
+}
+
+apply_fan() {
+    local fan="$1" target="$2" mode="${3:-normal}"
+    [ -z "$fan_dir" ] && return
+    [ "$target" -gt "$MAX_BOOST" ] && target=$MAX_BOOST
+
+    local -n _boost="boost_fan${fan}"
+
+    # Sync tracked value with hardware — catches firmware overrides each cycle.
+    local actual
+    actual=$(cat "${fan_dir}fan${fan}_boost" 2>/dev/null)
+    if [ -n "$actual" ] && [ "$_boost" -ge 0 ] && [ "$actual" -ne "$_boost" ]; then
+        _boost=$actual
+    fi
+
+    # Spike correction: if boost is >20% above target, skip ramp and correct immediately.
+    if [ "$_boost" -gt $((target + 20)) ]; then
+        set_boost_fan "$fan" "$target"
+        logger -t alienware-fan "fan${fan} spike ${_boost}→${target}% (firmware override, cpu=${cpu_temp}°C gpu=${gpu_temp}°C)"
+        _boost=$target
+        return
+    fi
+
+    local ramp_up ramp_down deadband
+    case "$mode" in
+        gaming) ramp_up=15; ramp_down=5; deadband=4 ;;
+        low)    ramp_up=5;  ramp_down=3; deadband=6 ;;
+        *)      ramp_up=8;  ramp_down=3; deadband=5 ;;
+    esac
+
+    local next
+    if [ "$_boost" -lt 0 ]; then
+        next=$target
+    elif [ "$target" -gt "$_boost" ]; then
+        local diff=$(( target - _boost ))
+        [ "$diff" -le "$deadband" ] && return
+        local step=$(( diff > ramp_up ? ramp_up : diff ))
+        next=$(( _boost + step ))
+    else
+        local diff=$(( _boost - target ))
+        [ "$diff" -le "$deadband" ] && return
+        local step=$(( diff > ramp_down ? ramp_down : diff ))
+        next=$(( _boost - step ))
+    fi
+
+    if [ -n "$next" ] && [ "$next" -ne "$_boost" ]; then
+        set_boost_fan "$fan" "$next"
+        logger -t alienware-fan "fan${fan} ${_boost}→${next}% (target=${target}% mode=${mode} cpu=${cpu_temp}°C gpu=${gpu_temp}°C)"
+        _boost=$next
+    fi
+}
+
 set_governor() {
-    local gov="$1"
-    local current_gov
+    local gov="$1" current_gov
     current_gov=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)
     [ "$current_gov" = "$gov" ] && return
     echo "$gov" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null 2>&1
     logger -t alienware-fan "governor → $gov"
 }
 
-set_epp() {
-    local epp="$1"
-    local current
-    current=$(cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference 2>/dev/null)
-    [ "$current" = "$epp" ] && return
-    for f in /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference; do
-        echo "$epp" > "$f" 2>/dev/null
-    done
-    logger -t alienware-fan "EPP → $epp"
-}
-
 set_profile() {
-    local profile="$1"
-    local epp="$2"
-    local current
+    local profile="$1" current
     current=$(cat "$PROFILE_FILE" 2>/dev/null)
     if [ "$current" != "$profile" ]; then
         echo "$profile" > "$PROFILE_FILE"
         logger -t alienware-fan "profile → $profile"
     fi
-    set_epp "$epp"
     if [ "$profile" = "performance" ]; then
         set_governor "performance"
     else
         set_governor "powersave"
     fi
 }
-
-emergency=false
-high_since=0
-
-logger -t alienware-fan "started"
 
 notify_user() {
     local urgency="$1" summary="$2" body="$3"
@@ -113,44 +230,135 @@ notify_user() {
         notify-send -u "$urgency" -t 4000 "$summary" "$body" 2>/dev/null || true
 }
 
+trap 'release_fan_control; exit' INT TERM EXIT
+
+emergency_cpu=false
+emergency_gpu=false
+high_cpu_since=0
+high_gpu_since=0
+prev_mode=""
+cpu_hist=()
+gpu_hist=()
+cpu_peak=0
+gpu_peak=0
+
+init_fan_dir \
+    && logger -t alienware-fan "started — alienware_wmi fan boost control active (MAX_BOOST=${MAX_BOOST}%)" \
+    || logger -t alienware-fan "started — no alienware_wmi found"
+
 while true; do
     cpu_temp=$(get_cpu_temp)
     gpu_temp=$(get_gpu_temp || echo 0)
-    temp=$(( cpu_temp > gpu_temp ? cpu_temp : gpu_temp ))
     now=$(date +%s)
+    mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
 
-    if [ "$temp" -ge "$EMERGENCY_THRESHOLD" ]; then
-        [ "$high_since" -eq 0 ] && high_since=$now
-        elapsed=$((now - high_since))
-        if [ "$elapsed" -ge "$EMERGENCY_DURATION" ] && [ "$emergency" = false ]; then
-            logger -t alienware-fan "EMERGENCY: CPU ${cpu_temp}°C GPU ${gpu_temp}°C for ${elapsed}s — forcing performance"
-            notify_user critical "Thermal limit reached" "CPU ${cpu_temp}°C · GPU ${gpu_temp}°C · sustained ${elapsed}s"
-            emergency=true
+    # Smooth large mode transitions to avoid abrupt RPM jumps that cause rasping.
+    # Bridges the firmware's instantaneous baseline change with an intermediate profile.
+    # Also resets temp history so the new mode responds to current temps immediately.
+    if [ -n "$prev_mode" ] && [ "$mode" != "$prev_mode" ]; then
+        reset_temp_history
+        case "${prev_mode}_${mode}" in
+            low_gaming|gaming_low)
+                logger -t alienware-fan "transition ${prev_mode}→${mode}: bridging via balanced-performance"
+                echo "balanced-performance" > "$PROFILE_FILE"
+                set_governor "powersave"
+                apply_fan 1 "$(temp_to_boost "$cpu_temp" "normal" cpu)" "normal"
+                apply_fan 2 "$(temp_to_boost "$gpu_temp" "normal" gpu)" "normal"
+                sleep 2
+                ;;
+            low_normal|normal_low)
+                logger -t alienware-fan "transition ${prev_mode}→${mode}: bridging via balanced"
+                echo "balanced" > "$PROFILE_FILE"
+                apply_fan 1 "$(temp_to_boost "$cpu_temp" "normal" cpu)" "normal"
+                apply_fan 2 "$(temp_to_boost "$gpu_temp" "normal" gpu)" "normal"
+                sleep 1
+                ;;
+            normal_gaming)
+                logger -t alienware-fan "transition normal→gaming: settling fans before performance"
+                apply_fan 1 "$(temp_to_boost "$cpu_temp" "normal" cpu)" "normal"
+                apply_fan 2 "$(temp_to_boost "$gpu_temp" "normal" gpu)" "normal"
+                sleep 1
+                ;;
+            gaming_normal)
+                logger -t alienware-fan "transition gaming→normal: bridging via balanced"
+                echo "balanced" > "$PROFILE_FILE"
+                apply_fan 1 "$(temp_to_boost "$cpu_temp" "normal" cpu)" "normal"
+                apply_fan 2 "$(temp_to_boost "$gpu_temp" "normal" gpu)" "normal"
+                sleep 1
+                ;;
+        esac
+    fi
+    prev_mode="$mode"
+
+    eff_cpu=$(smooth_temp cpu_hist cpu_peak "$cpu_temp")
+    eff_gpu=$(smooth_temp gpu_hist gpu_peak "$gpu_temp")
+
+    # CPU emergency tracking
+    if [ "$cpu_temp" -ge "$EMERGENCY_CPU_THRESHOLD" ]; then
+        [ "$high_cpu_since" -eq 0 ] && high_cpu_since=$now
+        elapsed_cpu=$((now - high_cpu_since))
+        if [ "$elapsed_cpu" -ge "$EMERGENCY_DURATION" ] && [ "$emergency_cpu" = false ]; then
+            logger -t alienware-fan "EMERGENCY CPU: ${cpu_temp}°C for ${elapsed_cpu}s"
+            notify_user critical "CPU thermal limit" "CPU ${cpu_temp}°C · sustained ${elapsed_cpu}s"
+            emergency_cpu=true
         fi
     else
-        high_since=0
-        if [ "$emergency" = true ] && [ "$temp" -le "$RECOVERY_THRESHOLD" ]; then
-            logger -t alienware-fan "recovery: CPU ${cpu_temp}°C GPU ${gpu_temp}°C — back to normal mode"
-            notify_user normal "Temperature stable" "CPU ${cpu_temp}°C · GPU ${gpu_temp}°C — normal mode restored"
-            emergency=false
+        high_cpu_since=0
+        if [ "$emergency_cpu" = true ] && [ "$cpu_temp" -le "$RECOVERY_CPU_THRESHOLD" ]; then
+            logger -t alienware-fan "CPU recovery: ${cpu_temp}°C"
+            notify_user normal "CPU stable" "CPU ${cpu_temp}°C — normal cooling restored"
+            emergency_cpu=false
         fi
     fi
 
-    if [ "$emergency" = true ]; then
-        set_profile "performance" "performance"
+    # GPU emergency tracking
+    if [ "$gpu_temp" -ge "$EMERGENCY_GPU_THRESHOLD" ]; then
+        [ "$high_gpu_since" -eq 0 ] && high_gpu_since=$now
+        elapsed_gpu=$((now - high_gpu_since))
+        if [ "$elapsed_gpu" -ge "$EMERGENCY_DURATION" ] && [ "$emergency_gpu" = false ]; then
+            logger -t alienware-fan "EMERGENCY GPU: ${gpu_temp}°C for ${elapsed_gpu}s"
+            notify_user critical "GPU thermal limit" "GPU ${gpu_temp}°C · sustained ${elapsed_gpu}s"
+            emergency_gpu=true
+        fi
+    else
+        high_gpu_since=0
+        if [ "$emergency_gpu" = true ] && [ "$gpu_temp" -le "$RECOVERY_GPU_THRESHOLD" ]; then
+            logger -t alienware-fan "GPU recovery: ${gpu_temp}°C"
+            notify_user normal "GPU stable" "GPU ${gpu_temp}°C — normal cooling restored"
+            emergency_gpu=false
+        fi
+    fi
+
+    if [ "$emergency_cpu" = true ] || [ "$emergency_gpu" = true ]; then
+        set_profile "performance"
+        if [ "$emergency_cpu" = true ]; then
+            [ "$boost_fan1" -ne "$MAX_BOOST" ] && logger -t alienware-fan "fan1 →${MAX_BOOST}% (CPU EMERGENCY ${cpu_temp}°C)"
+            set_boost_fan 1 "$MAX_BOOST"
+            boost_fan1=$MAX_BOOST
+        else
+            apply_fan 1 "$(temp_to_boost "$eff_cpu" "$mode" cpu)" "$mode"
+        fi
+        if [ "$emergency_gpu" = true ]; then
+            [ "$boost_fan2" -ne "$MAX_BOOST" ] && logger -t alienware-fan "fan2 →${MAX_BOOST}% (GPU EMERGENCY ${gpu_temp}°C)"
+            set_boost_fan 2 "$MAX_BOOST"
+            boost_fan2=$MAX_BOOST
+        else
+            apply_fan 2 "$(temp_to_boost "$eff_gpu" "$mode" gpu)" "$mode"
+        fi
     elif ac_online; then
-        mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
-        set_profile "${AC_PROFILES[$mode]:-balanced-performance}" "${AC_EPP[$mode]:-balance_power}"
+        set_profile "${AC_PROFILES[$mode]:-balanced-performance}"
+        apply_fan 1 "$(temp_to_boost "$eff_cpu" "$mode" cpu)" "$mode"
+        apply_fan 2 "$(temp_to_boost "$eff_gpu" "$mode" gpu)" "$mode"
     else
         if pidof hyprlock > /dev/null 2>&1; then
-            set_profile "$BATTERY_LOCKED_PROFILE" "$BATTERY_LOCKED_EPP"
+            set_profile "$BATTERY_LOCKED_PROFILE"
+            [ "$boost_fan1" -ne -1 ] && release_fan_control
         else
-            mode=$(cat "$MODE_FILE" 2>/dev/null || echo "normal")
-            if [ "$mode" = "gaming" ]; then
-                set_profile "${AC_PROFILES[normal]}" "${AC_EPP[normal]}"
-            else
-                set_profile "${AC_PROFILES[$mode]}" "${AC_EPP[$mode]}"
-            fi
+            local_mode="$mode"
+            [ "$mode" = "gaming" ] && local_mode="normal"
+            set_profile "${AC_PROFILES[$local_mode]}"
+            apply_fan 1 "$(temp_to_boost "$eff_cpu" "$local_mode" cpu)" "$local_mode"
+            apply_fan 2 "$(temp_to_boost "$eff_gpu" "$local_mode" gpu)" "$local_mode"
         fi
     fi
 

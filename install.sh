@@ -113,6 +113,10 @@ if $DRY_RUN; then
     echo "[dry-run] sudo systemctl enable --now alienware-fan"
     echo "[dry-run] sudo cp system/awm /usr/local/bin/awm"
     echo "[dry-run] sudo chmod +x /usr/local/bin/awm"
+    echo "[dry-run] sudo cp system/auto-mode/auto-mode /usr/local/bin/"
+    echo "[dry-run] sudo chmod +x /usr/local/bin/auto-mode"
+    echo "[dry-run] sudo cp system/auto-mode/auto-mode.service /etc/systemd/system/"
+    echo "[dry-run] sudo systemctl enable --now auto-mode"
 else
     sudo cp "$DOTFILES/system/alienware-fan/alienware-fan" /usr/local/bin/
     sudo chmod +x /usr/local/bin/alienware-fan
@@ -122,6 +126,11 @@ else
     sudo cp "$DOTFILES/system/awm" /usr/local/bin/awm
     sudo chmod +x /usr/local/bin/awm
     echo "  installed: /usr/local/bin/awm"
+    sudo cp "$DOTFILES/system/auto-mode/auto-mode" /usr/local/bin/
+    sudo chmod +x /usr/local/bin/auto-mode
+    sudo cp "$DOTFILES/system/auto-mode/auto-mode.service" /etc/systemd/system/
+    sudo systemctl enable --now auto-mode
+    echo "  enabled:   auto-mode.service"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
